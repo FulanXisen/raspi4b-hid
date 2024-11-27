@@ -1,0 +1,22 @@
+import HID 
+from HID import CODE
+import time
+ALPHABET = [CODE.KEY_A,CODE.KEY_B,CODE.KEY_C,
+CODE.KEY_D,CODE.KEY_E,CODE.KEY_F,
+CODE.KEY_G,CODE.KEY_H,CODE.KEY_I,
+CODE.KEY_J,CODE.KEY_K,CODE.KEY_L,
+CODE.KEY_M,CODE.KEY_N,CODE.KEY_O,
+CODE.KEY_P,CODE.KEY_Q,CODE.KEY_R,
+CODE.KEY_S,CODE.KEY_T,CODE.KEY_U,
+CODE.KEY_V,CODE.KEY_W,CODE.KEY_X,
+CODE.KEY_Y,CODE.KEY_Z]
+
+for i in range(len(ALPHABET)):
+    HID.press(bytes([*[0]*2,ALPHABET[i],*[0]*5]))
+for i in range(len(ALPHABET)):
+    HID.press(bytes([CODE.LEFT_SHIFT, 0,ALPHABET[i], *[0]*5]))
+    
+time.sleep(0.1)
+
+print()
+    
