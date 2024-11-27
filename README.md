@@ -1,14 +1,17 @@
-# Raspberry Pi Zero as HID keyboard device
+# Raspberry Pi 4B as HID keyboard device
 
-The following instructions will turn *Raspberry Pi Zero* into a HID keyboard to perform keystroke injection.
+The following instructions will turn *Raspberry Pi 4B* into a HID keyboard to perform keystroke injection.
 
 *Note*: 
 
-- This will only work on `Zero` or `Zero W` model only, not the `3B+`, `3B`, etc.
+- This was only verified on `4B` and `Windows 11`.
 
 ## How this works
-
-I don't really understand about modifying system files in the setup part. However, it helps us to turn Raspberry Pi Zero into a keyboard when we connect the OTG port on Raspberry Pi Zero with our PC USB port.
+1. Use RPi-4B's TYPC-C OTG port, let RPi act as a USB peripheral device.
+    -  USB has HOST mode and DEVICE mode, RPi-4B's 2 USB2.0 and 2 USB3.0 port work in HOST mode by default. 
+    -  Normally, RPi-4B doesn't have the ability to switch directly to USB device mode.
+    -  OTG allows a device to be either a host or a device, and to switch between the two.
+2. Create Keyboard device via HID
 
 In order to send key pressed or released commands, we only need to write HID report to `/dev/hidg0`.
 
@@ -28,87 +31,43 @@ HID report is a 8-byte package. Please read more about HID report format.
 
 ## Instructions
 
-- Install `git`, `pip`
+- Enable USB OTG (TYPE-C Cable on RPi4B) as peripheral：
+
+Add `dtoverlay=dwc2` to `/boot/firmware/config.txt`
+
+Add `dr_mode=peripheral` to `/boot/firmware/config.txt`
 
 ```bash
-sudo apt update
-sudo apt install git
-sudo apt install python3 python3-pip
+echo "dtoverlay=dwc2, dr_mode=peripheral" | sudo tee -a /boot/firmware/config.txt
 ```
 
-- Clone this repo
+- Load extra kernel modules
+
+Add `dwc2` and `libcomposite` to `/etc/modules`
 
 ```bash
-git clone https://github.com/ichisadashioko/raspizero-hid
-cd raspizero-hid
+echo "dwc2" | sudo tee -a /etc/modules-load.d/modules.conf
+echo "libcomposite" | sudo tee -a /etc/modules-load.d/modules.conf
 ```
 
-- Install `requirements.txt`
-
-```bash
-sudo pip3 install -r requirements.txt
-```
-
-- Add `dtoverlay=dwc2` to `/boot/config.txt`
-
-```
-echo "dtoverlay=dwc2" | sudo tee -a /boot/config.txt
-```
-
-- Add `dwc2` and `libcomposite` to `/etc/modules`
-
-```
-echo "dwc2" | sudo tee -a /etc/modules
-echo "libcomposite" | sudo tee -a /etc/modules
-```
-
-- Copy `raspizero_hid` to `/usr/bin/` and make it executable.
-
-```
-sudo cp raspizero_hid /usr/bin/
-sudo chmod +x /usr/bin/raspizero_hid
-```
-
-- Open `/etc/rc.local` with `nano` or `vim` and add the line `/usr/bin/raspizero_hid` to `/etc/rc.local` before `exit 0`
-
-Example `/etc/rc.local` content
-
-```
-#!/bin/sh -e
-#
-# rc.local
-#
-# This script is executed at the end of each multiuser runlevel.
-# Make sure that the script will "exit 0" on success or any other
-# value on error.
-#
-# In order to enable or disable this script just change the execution
-# bits.
-#
-# By default this script does nothing.
-
-# Print the IP address
-_IP=$(hostname -I) || true
-if [ "$_IP" ]; then
-  printf "My IP address is %s\n" "$_IP"
-fi
-
-# for raspizero-hid
-/usr/bin/raspizero_hid
-
-exit 0
-```
-
-- Reboot the Pi
+- Restart to take effect
 
 ```
 sudo reboot
 ```
 
-## Demo
+- After reboot you should see things like
 
 ```
-bash wallpaper.sh
+$ ls /sys/class/udc
+fe980000.usb
 ```
 
-When the command is too long (e.g. `argparse`), you can put it in a text file and run it by using `bash [command-text-file]`.
+- Config USB gadget to create a USB keyboard (a script is already in this repo)
+  
+```bash 
+sudo bash create_keyboard.sh
+```
+
+- Now your PC should recognize a new USB Input Device
+
