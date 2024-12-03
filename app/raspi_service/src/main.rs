@@ -46,6 +46,9 @@ fn main() -> Result<()> {
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || loop {
         let mut buffer = Vec::new();
+        while port.bytes_to_read().unwrap() == 0 {
+            sleep(Duration::from_millis(100));
+        };
         port.read_to_end(&mut buffer).unwrap();
         let frame = bincode::deserialize::<Frame>(&buffer).unwrap();
         match frame {
@@ -105,5 +108,6 @@ fn main() -> Result<()> {
     });
 
     println!("Hello, world!");
+    sleep(Duration::from_secs(1000));
     Ok(())
 }
