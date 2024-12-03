@@ -1,78 +1,23 @@
 use anyhow::Result;
 use core::time;
+use defs::{Action, Frame, Mapping, Trigger};
 use env_logger::Builder;
 use global_hotkey::HotKeyState;
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
     GlobalHotKeyEvent, GlobalHotKeyManager,
 };
-use log::{debug, error, info, trace, warn};
+use log::{info, trace, warn};
 use serde::{Deserialize, Serialize};
 use serialport::{SerialPort, SerialPortInfo, SerialPortType, UsbPortInfo};
 use std::collections::HashMap;
 use std::io::{self, Write as _};
-use std::net::TcpStream;
 use std::sync::Mutex;
 use std::sync::{mpsc, Arc};
 use std::thread::{self, sleep, JoinHandle};
 use std::time::Duration;
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::{DispatchMessageW, GetMessageW, TranslateMessage, HWND_TOP, MSG};
-
-// +----------------+----------------+----------------+------------------------+----------------+------------------+
-// | 起始字节 (1B)   | 数据长度 (2B)   | 命令字节 (1B)  | 数据 (N B)             | 校验和 (1B)     | 结束字节 (1B)    |
-// +----------------+----------------+----------------+------------------------+----------------+------------------+
-// | 0x7E           | 0x00 0x08       | 0x01           | 0x7E 0x7D 0xAB 0xCD    | 0xF7           | 0x7F             |
-// +----------------+----------------+----------------+------------------------+----------------+------------------+
-
-const START_BYTE: u8 = 0x7E;
-const END_BYTE: u8 = 0x7E;
-
-#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct Trigger {
-    modifiers: Option<Modifiers>,
-    code: Code,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-enum Action {
-    TriggerKey(Option<Modifiers>, Code),
-    Smart,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Mapping {
-    mappings: HashMap<Trigger, Action>,
-}
-
-impl Mapping {
-    fn new() -> Self {
-        Mapping {
-            mappings: HashMap::new(),
-        }
-    }
-
-    fn add_mapping(&mut self, trigger: Trigger, action: Action) {
-        self.mappings.insert(trigger, action);
-    }
-
-    fn serialize(&self) -> Vec<u8> {
-        // use serde serialize
-        bincode::serialize(&self).unwrap()
-    }
-
-    fn deserialize(data: &[u8]) -> Mapping {
-        // use serde deserialize
-        bincode::deserialize::<Mapping>(data).unwrap()
-    }
-}
-
-
-#[derive(Debug, Serialize, Deserialize)]
-enum Frame {
-    Trigger(Trigger),
-    Mapping(Mapping),
-}
 
 fn serial_port() -> Result<(Box<dyn SerialPort>, Box<dyn SerialPort>)> {
     let ports = serialport::available_ports()?;
@@ -112,7 +57,7 @@ fn main() -> Result<()> {
     let uart_tx0 = Arc::new(Mutex::new(uart_tx));
     let uart_tx1 = uart_tx0.clone();
 
-    // listen and send mapping 
+    // listen and send mapping
     thread::spawn(move || loop {
         match mapping_rx.recv() {
             Ok(mapping) => {
@@ -128,7 +73,13 @@ fn main() -> Result<()> {
     // notify a new mapping
     thread::spawn(move || loop {
         let mut mapping = Mapping::new();
-        mapping.add_mapping(Trigger{modifiers:Some(Modifiers::ALT),code: Code::Digit2}, Action::TriggerKey(None, Code::Digit1));
+        mapping.add_mapping(
+            Trigger {
+                modifiers: Some(Modifiers::ALT),
+                code: Code::Digit2,
+            },
+            Action::Key(None, Code::Digit1),
+        );
         mapping_tx.send(mapping).unwrap();
     });
 
@@ -170,7 +121,7 @@ fn main() -> Result<()> {
     run_win32_message_loop();
     trace!("teardown");
     //app
-    eframe::Result::Ok(())
+    Ok(())
 }
 
 // fn initialize_connection() -> Option<TcpStream> {

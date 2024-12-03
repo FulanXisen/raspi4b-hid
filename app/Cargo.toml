@@ -1,0 +1,20 @@
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["fanyx"]
+
+
+[workspace]
+members = [ "defs",
+    "raspi_service",
+    "win_app"
+]
+
+[workspace.dependencies]
+log = "0.4"
+env_logger = "0.11.5"
+anyhow = "1.0"
+serialport = "4.6.1"
+serde = "1.0"
+bincode = "1.3.3"
