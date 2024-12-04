@@ -13,6 +13,7 @@ use defs::{Action, Frame, Mapping};
 use env_logger::Builder;
 use log::trace;
 use once_cell::sync::Lazy;
+use rppal::uart::{Parity, Uart};
 
 static MAPPING: Lazy<Mutex<Mapping>> = Lazy::new(|| Mutex::new(Mapping::new()));
 const HID_FILENAME: &str = "/dev/hidg0";
@@ -20,16 +21,16 @@ const HID_FILENAME: &str = "/dev/hidg0";
 static RELEASE: &[u8] = &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
 fn press_and_release(inp_rpt: &[u8]) -> Result<()> {
-    // Open /dev/hidg0 for write access
-    let mut out_file = OpenOptions::new()
-        .write(true) // Open the file with write access
-        .open(HID_FILENAME)?;
+    // // Open /dev/hidg0 for write access
+    // let mut out_file = OpenOptions::new()
+    //     .write(true) // Open the file with write access
+    //     .open(HID_FILENAME)?;
 
-    // Write the input report to the device
-    out_file.write_all(inp_rpt)?;
+    // // Write the input report to the device
+    // out_file.write_all(inp_rpt)?;
 
-    // If release is true, send the RELEASE byte
-    out_file.write_all(RELEASE)?;
+    // // If release is true, send the RELEASE byte
+    // out_file.write_all(RELEASE)?;
     Ok(())
 }
 
@@ -39,17 +40,18 @@ fn main() -> Result<()> {
         .init(); // Initialize the logger
     trace!("start up");
 
-    let mut port = serialport::new("/dev/serial0", 115_200)
-        .timeout(Duration::from_millis(10))
-        .open()?;
+    let mut uart = Uart::new(115_200, Parity::None, 8, 1)?;
+    uart.set_read_mode(1, Duration::default());
+    // let mut port = serialport::new("/dev/serial0", 115_200)
+    //     .timeout(Duration::from_millis(10))
+    //     .open()?;
 
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || loop {
-        let mut buffer = Vec::new();
-        while port.bytes_to_read().unwrap() == 0 {
-            sleep(Duration::from_millis(100));
-        };
-        port.read_to_end(&mut buffer).unwrap();
+        let mut buffer = [0u8;512];
+        uart.read(&mut buffer).unwrap();
+        //port.read_exact(&mut buffer[0..1]).unwrap();
+        //port.read(&mut buffer[1..]).unwrap();
         let frame = bincode::deserialize::<Frame>(&buffer).unwrap();
         match frame {
             Frame::Trigger(trigger) => {

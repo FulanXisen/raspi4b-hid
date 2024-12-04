@@ -37,6 +37,10 @@ fn serial_port() -> Result<(Box<dyn SerialPort>, Box<dyn SerialPort>)> {
         .collect();
     let unique_port = ports.get(0).unwrap();
     let port = serialport::new(unique_port.port_name.clone(), 115_200)
+        .data_bits(serialport::DataBits::Eight)
+        .parity(serialport::Parity::None)
+        .stop_bits(serialport::StopBits::One)
+        .flow_control(serialport::FlowControl::None)
         .timeout(Duration::from_millis(10))
         .open()?;
     let clone = port.try_clone()?;
@@ -113,8 +117,9 @@ fn main() -> Result<()> {
     // send hotkey to UART
     thread::spawn(move || loop {
         if let Ok(event) = hotkey_rx.recv() {
-            let s = bincode::serialize(&event).unwrap();
-            uart_tx1.lock().unwrap().write_all(&s).unwrap();
+            let s = bincode::serialize(&Frame::Trigger(event)).unwrap();
+            trace!("UART TX: {s:?}");
+            //uart_tx1.lock().unwrap().write_all(&s).unwrap();
         }
     });
 
