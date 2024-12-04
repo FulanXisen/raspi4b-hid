@@ -40,24 +40,31 @@ fn main() -> Result<()> {
         .init(); // Initialize the logger
     trace!("start up");
 
-    let mut uart = Uart::new(115_200, Parity::None, 8, 1)?;
-    uart.set_read_mode(1, Duration::default());
-    // let mut port = serialport::new("/dev/serial0", 115_200)
-    //     .timeout(Duration::from_millis(10))
-    //     .open()?;
+    // let mut uart = Uart::new(115_200, Parity::None, 8, 1)?;
+    // uart.set_read_mode(1, Duration::default());
+    let mut port = serialport::new("/dev/serial0", 115_200)
+        .timeout(Duration::from_millis(10))
+        .open()?;
 
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || loop {
-        let mut buffer = [0u8;512];
-        uart.read(&mut buffer).unwrap();
-        //port.read_exact(&mut buffer[0..1]).unwrap();
-        //port.read(&mut buffer[1..]).unwrap();
+        let mut len_bytes = [0u8;2];
+        trace!("read ...");
+        // uart.read(&mut buffer).unwrap();
+        port.read_exact(&mut len_bytes).unwrap();
+        let len = u16::from_le_bytes(len_bytes);
+        trace!("read len: {len}");
+        let mut buffer = Vec::with_capacity(len as usize);
+        trace!("read ...");
+        port.read_exact(&mut buffer).unwrap();
         let frame = bincode::deserialize::<Frame>(&buffer).unwrap();
         match frame {
             Frame::Trigger(trigger) => {
+                trace!("trigger: {:?}", trigger);
                 tx.send(trigger).unwrap();
             }
             Frame::Mapping(mapping) => {
+                trace!("mapping: {:?}", mapping);
                 *MAPPING.lock().unwrap() = mapping;
             }
         }

@@ -66,7 +66,11 @@ fn main() -> Result<()> {
         match mapping_rx.recv() {
             Ok(mapping) => {
                 let s = bincode::serialize(&Frame::Mapping(mapping)).unwrap();
-                uart_tx0.lock().unwrap().write(&s).unwrap();
+                let len_bytes = (s.len() as u16).to_le_bytes();
+                trace!("send len: {len_bytes:?}");
+                // uart_tx0.lock().unwrap().write_all(&len_bytes).unwrap();
+                trace!("send mapping: {s:?}");
+                // uart_tx0.lock().unwrap().write_all(&s).unwrap();
             }
             Err(e) => {
                 warn!("{}", e);
@@ -75,7 +79,9 @@ fn main() -> Result<()> {
     });
 
     // notify a new mapping
-    thread::spawn(move || loop {
+    thread::spawn(move || {
+        let mut b = true;
+        loop {
         let mut mapping = Mapping::new();
         mapping.add_mapping(
             Trigger {
@@ -84,8 +90,12 @@ fn main() -> Result<()> {
             },
             Action::Key(None, Code::Digit1),
         );
-        mapping_tx.send(mapping).unwrap();
-    });
+        if b {
+            mapping_tx.send(mapping).unwrap();
+            b = !b;
+        }
+        sleep(Duration::from_secs(1));
+    }});
 
     trace!("create GlobalHotKeyManager");
     let manager = GlobalHotKeyManager::new()?;
